@@ -30,30 +30,39 @@ View(wikidata_data)
 
 
 ## what records have no honsid on file - sweep 1
-award_url_hons_id_fix_check <- wikidata_data %>% 
-  mutate(de_dupe = paste(person,orderaus)) %>% 
-  distinct(de_dupe, .keep_all = TRUE) %>% 
+wikidata_data_id_na <- wikidata_data %>% 
   filter(is.na(honsid))
 
-View(award_url_hons_id_fix_check)
+View(wikidata_data_id_na)
 
-## taking award ID from award url string
-
-
+wikidata_data_id <- wikidata_data %>% 
+  filter(!is.na(honsid))
 
 
 ##getting honoursid from the refurl of the honors listing then merging back into wikidata extract
 
-award_url_hons_id_fix1 <- award_url_hons_id_fix_check %>% 
+award_url_hons_id_fix1 <- wikidata_data_id_na %>% 
   mutate(newId = refurl) %>% 
-  filter(str_starts(newId, "https://honours.pmc.gov.au/honours/awards/")) %>% 
+  filter(str_starts(newId, "https://honours.pmc.gov.au/honours/awards/")) %>%
   mutate(newId = str_replace_all(newId, "https://honours.pmc.gov.au/honours/awards/", "")) %>% 
   select(-honsid) %>% 
-  rename(honsid=newId) %>% 
-  select(honsid, person,refurl) %>% 
-  right_join(wikidata_data, by=c("person", "refurl")) 
+  rename(honsid  newID)
+  
+
+## cases with no hint of ID - investigate further at later date
+award_url_hons_id_fix2 <- wikidata_data_id_na %>% 
+  mutate(newId = refurl) %>% 
+  filter(!str_starts(newId, "https://honours.pmc.gov.au/honours/awards/")) 
+  
+
+# merge in new ID people with main group
+
+wikidata_data2 <- wikidata_data_id %>% 
+  rbind(award_url_hons_id_fix1)
   
 View(award_url_hons_id_fix1)
+
+award
 
 ## what records have no honsid on file - sweep 2
 award_url_hons_id_fix_check2 <- award_url_hons_id_fix1 %>% 
