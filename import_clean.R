@@ -6,6 +6,7 @@ library(RSelenium)
 library(rvest)
 library(xml2)
 library(janitor)
+library(stringi)
 
 honour_1 <- read_csv("master_list.csv") %>% 
   clean_names()
@@ -13,6 +14,8 @@ honour_1 <- read_csv("master_list.csv") %>%
 # View(honour_1)
 
 ##extracting details from wikidata - using WikidataQueryServiceR
+
+
 
 wikidata_data <- query_wikidata("SELECT ?person ?personLabel ?personDescription ?refurl ?orderaus ?award_name ?honsid ?date_awarded ?sitelink 
 WHERE {
@@ -71,8 +74,10 @@ award_url_hons_id_fix1 <- wikidata_data_id_na %>%
   filter(!is.na(honsid)) %>% 
   select(1:6, 9, 7:8)
   
+View(wikidata)
 wikidata <- rbind(wikidata_data_id, award_url_hons_id_fix1)  
 View(wikidata)
+
 wikidata_wp <- wikidata %>% 
   filter (!is.na(sitelink))
 
@@ -85,7 +90,12 @@ wikidata_wp <- wikidata %>%
 
 ##preparing for wikipedia first page edit 
 
-wikipedia_page_list <- wikidata %>% 
+View(wikipedia_page_list)
+View(wikidata)
+
+View(wikidata_wp)
+
+wikipedia_page_list <- wikidata_wp %>% 
   mutate(wikipedia_page = case_when(!is.na(sitelink) ~ "Yes",
                                     TRUE ~ "No")) %>% 
   rename(wikidata_link = person) %>% 
@@ -98,9 +108,10 @@ wikipedia_page_list <- wikidata %>%
 ## preparing data to extract wikipage ID
 
 View(wikipedia_page_query)
+View(wikipedia_page_list)
 
 wikipedia_page_query <- wikipedia_page_list %>%
-  select(wikipedia_url) %>% 
+  select(wikipedia_url, personLabel) %>% 
   mutate(name = str_remove(wikipedia_url, "https://en.wikipedia.org/wiki/")) %>% 
   mutate(name = str_replace_all(name, "_", " ")) %>% 
   mutate(name = str_replace_all(name, "%27", "'")) %>% 
@@ -117,8 +128,12 @@ wikipedia_page_query <- wikipedia_page_list %>%
   mutate(name = str_replace_all(name, "%C3%A1", 'á')) %>% 
   mutate(name = str_replace_all(name, "%C5%99%C3%AD", 'ří')) %>% 
   mutate(name = str_replace_all(name, "%C3%B6", 'ö')) %>% 
+  mutate(name = str_replace(name, 'Bela "Bert" Grof', 'Bert Grof')) %>% 
+  mutate(name = str_replace(name, 'Peter "Bullfrog" Moore', 'Peter Bullfrog Moore')) %>% 
+  mutate(name = str_replace(name, 'Wilfred James "Bill" Gray', 'Wilfred James Bill Gray')) %>% 
   # mutate(name = str_remove_all(name , "[[\\p{P}][\\p{S}]]")) %>% 
-  distinct()
+  distinct() 
+  
 
 # extracts wikipedia page information for each record - takes some time!
 
@@ -145,7 +160,7 @@ wp_5 <- wikipedia_page_query %>%
 wikipedia_page_extraction_1 <- lapply(wp_1$name, function (i) {
   getinfo <- page_info("en", "wikipedia", page=i , clean_response = TRUE) 
 })
-
+ 
 
 wikipedia_page_extraction_2 <- lapply(wp_2$name, function (i) {
   getinfo <- page_info("en", "wikipedia", page=i , clean_response = TRUE)
@@ -168,7 +183,23 @@ wikipedia_page_extraction_5 <- lapply(wp_5$name, function (i) {
 })
 
 
-wikipedia_page_extraction_unlist <- unlist(wikipedia_page_extraction_1, recursive=FALSE)
+##unlisting the above lists!
+
+wikipedia_page_extraction_unlist_1 <- unlist(wikipedia_page_extraction_1, recursive=FALSE)
+wikipedia_page_extraction_unlist_2 <- unlist(wikipedia_page_extraction_2, recursive=FALSE)
+wikipedia_page_extraction_unlist_3 <- unlist(wikipedia_page_extraction_3, recursive=FALSE)
+wikipedia_page_extraction_unlist_4 <- unlist(wikipedia_page_extraction_4, recursive=FALSE)
+wikipedia_page_extraction_unlist_5 <- unlist(wikipedia_page_extraction_5, recursive=FALSE)
+
+
+##combining the lists
+wikipedia_page_extraction_unlist <- c(wikipedia_page_extraction_unlist_1, wikipedia_page_extraction_unlist_2, 
+                                      wikipedia_page_extraction_unlist_3, wikipedia_page_extraction_unlist_4,
+                                      wikipedia_page_extraction_unlist_5)
+
+
+## formatting for extraction
+View(wikipedia_page_extraction_format)
 
 wikipedia_page_extraction_format <- tibble (
   id = map(wikipedia_page_extraction_unlist, "pageid"),
@@ -195,9 +226,434 @@ wikipedia_page_extraction_format <- tibble (
   mutate(wp_url = str_replace_all(wp_url, "%C3%A1", 'á')) %>%
   mutate(wp_url = str_replace_all(wp_url, "%C5%99%C3%AD", 'ří')) %>%
   mutate(wp_url = str_replace_all(wp_url, "%C3%B6", 'ö')) %>%
-  rename(wp_pageid = pageid)
-
-
+  rename(wp_pageid = pageid) 
 
 
   
+
+
+missing_names <- c("Tony Rundle", "Ruth McColl", "Bert Grof", "Wilfred James", 
+                   "William Ellis Green", "Robert Evans (astronomer)", "Peter Bullfrog Moore",
+                   'Wilfred James "Bill" Gray', 'Bela "Bert" Grof', 'Peter "Bullfrog" Moore')
+
+View(wikipedia_page_extraction_format_missing)
+wikipedia_page_extraction_format_missing <- wikipedia_page_extraction_format %>% 
+  filter(display_name %in% (missing_names) | wp_url  %in% (missing_names)) %>% 
+  select(wp_pageid) %>% 
+  distinct() %>% 
+  mutate(base = "https://en.wikipedia.org/w/api.php?action=query&prop=revisions&rvlimit=1&rvprop=timestamp&rvdir=newer&pageids=") %>% 
+  mutate(search_url=paste(base, wp_pageid, sep = "")) %>% 
+  select(search_url) 
+  
+
+
+
+
+
+
+##slicing and getting data ready for running query of page creation
+View(wp_page_create_search1)
+wp_page_create_search1 <- wikipedia_page_extraction_format %>% 
+  select(wp_pageid) %>% 
+  distinct() %>% 
+  mutate(base = "https://en.wikipedia.org/w/api.php?action=query&prop=revisions&rvlimit=1&rvprop=timestamp&rvdir=newer&pageids=") %>% 
+  mutate(search_url=paste(base, wp_pageid, sep = "")) %>% 
+  select(search_url) %>% 
+  slice(1:1000)
+
+wp_page_create_search2 <- wikipedia_page_extraction_format %>% 
+  select(wp_pageid) %>% 
+  distinct() %>% 
+  mutate(base = "https://en.wikipedia.org/w/api.php?action=query&prop=revisions&rvlimit=1&rvprop=timestamp&rvdir=newer&pageids=") %>% 
+  mutate(search_url=paste(base, wp_pageid, sep = "")) %>% 
+  select(search_url) %>% 
+  slice(1001:2000)
+
+
+# wp_page_create_search3 <- wikipedia_page_extraction_format %>% 
+#   select(wp_pageid) %>% 
+#   distinct() %>% 
+#   mutate(base = "https://en.wikipedia.org/w/api.php?action=query&prop=revisions&rvlimit=1&rvprop=timestamp&rvdir=newer&pageids=") %>% 
+#   mutate(search_url=paste(base, wp_pageid, sep = "")) %>% 
+#   select(search_url) %>% 
+#   slice(2001:3000)
+
+wp_page_create_search3a <- wikipedia_page_extraction_format %>% 
+  select(wp_pageid) %>% 
+  distinct() %>% 
+  mutate(base = "https://en.wikipedia.org/w/api.php?action=query&prop=revisions&rvlimit=1&rvprop=timestamp&rvdir=newer&pageids=") %>% 
+  mutate(search_url=paste(base, wp_pageid, sep = "")) %>% 
+  select(search_url) %>% 
+  slice(2001:2500)
+
+wp_page_create_search3b <- wikipedia_page_extraction_format %>% 
+  select(wp_pageid) %>% 
+  distinct() %>% 
+  mutate(base = "https://en.wikipedia.org/w/api.php?action=query&prop=revisions&rvlimit=1&rvprop=timestamp&rvdir=newer&pageids=") %>% 
+  mutate(search_url=paste(base, wp_pageid, sep = "")) %>% 
+  select(search_url) %>% 
+  slice(2501:3000)
+
+wp_page_create_search4 <- wikipedia_page_extraction_format %>% 
+  select(wp_pageid) %>% 
+  distinct() %>% 
+  mutate(base = "https://en.wikipedia.org/w/api.php?action=query&prop=revisions&rvlimit=1&rvprop=timestamp&rvdir=newer&pageids=") %>% 
+  mutate(search_url=paste(base, wp_pageid, sep = "")) %>% 
+  select(search_url) %>% 
+  slice(3001:6000)
+
+# query of page creation date for each data set
+
+wp_page_create_query1 <- lapply(wp_page_create_search1$search_url, function(i){
+  
+  date <- read_html(i)
+  
+  EntryInfo <- html_nodes(date, ".s2") %>% 
+    html_nodes(xpath="./text()[normalize-space()]") %>% 
+    html_text(trim=TRUE) %>% 
+    as_tibble() %>% 
+    slice_tail(n=9) %>% 
+    rownames_to_column() %>%
+    pivot_longer(-rowname) %>%
+    pivot_wider(names_from = rowname, values_from=value) %>% 
+    select(-name, -`1`, -`4`, -`3`, -`5`, -`7`, -`8`) %>% 
+    rename(pageID=`2`,
+           name = `6`,
+           pageCreation = `9`)
+  
+})
+
+wp_page_create_query2 <- lapply(wp_page_create_search2$search_url, function(i){
+  
+  date <- read_html(i)
+  
+  EntryInfo <- html_nodes(date, ".s2") %>% 
+    html_nodes(xpath="./text()[normalize-space()]") %>% 
+    html_text(trim=TRUE) %>% 
+    as_tibble() %>% 
+    slice_tail(n=9) %>% 
+    rownames_to_column() %>%
+    pivot_longer(-rowname) %>%
+    pivot_wider(names_from = rowname, values_from=value) %>% 
+    select(-name, -`1`, -`4`, -`3`, -`5`, -`7`, -`8`) %>% 
+    rename(pageID=`2`,
+           name = `6`,
+           pageCreation = `9`)
+  
+})
+
+
+# View(wp_page_create_search3)
+wp_page_create_query3a <- lapply(wp_page_create_search3a$search_url, function(i){
+  
+  
+  date <- read_html(i)
+  
+  EntryInfo <- html_nodes(date, ".s2") %>% 
+    html_nodes(xpath="./text()[normalize-space()]") %>% 
+    html_text(trim=TRUE) %>% 
+    as_tibble() %>% 
+    slice_tail(n=9) %>% 
+    rownames_to_column() %>%
+    pivot_longer(-rowname) %>%
+    pivot_wider(names_from = rowname, values_from=value) %>% 
+    select(-name, -`1`, -`4`, -`3`, -`5`, -`7`, -`8`) %>% 
+    rename(pageID=`2`,
+           name = `6`,
+           pageCreation = `9`)
+  
+})
+
+wp_page_create_query3b <- lapply(wp_page_create_search3b$search_url, function(i){
+  
+  
+  date <- read_html(i)
+  
+  EntryInfo <- html_nodes(date, ".s2") %>% 
+    html_nodes(xpath="./text()[normalize-space()]") %>% 
+    html_text(trim=TRUE) %>% 
+    as_tibble() %>% 
+    slice_tail(n=9) %>% 
+    rownames_to_column() %>%
+    pivot_longer(-rowname) %>%
+    pivot_wider(names_from = rowname, values_from=value) %>% 
+    select(-name, -`1`, -`4`, -`3`, -`5`, -`7`, -`8`) %>% 
+    rename(pageID=`2`,
+           name = `6`,
+           pageCreation = `9`)
+  
+})
+
+wp_page_create_query4 <- lapply(wp_page_create_search4$search_url, function(i){
+  date <- read_html(i)
+  EntryInfo <- html_nodes(date, ".s2") %>% 
+    html_nodes(xpath="./text()[normalize-space()]") %>% 
+    html_text(trim=TRUE) %>% 
+    as_tibble() %>% 
+    slice_tail(n=9) %>% 
+    rownames_to_column() %>%
+    pivot_longer(-rowname) %>%
+    pivot_wider(names_from = rowname, values_from=value) %>% 
+    select(-name, -`1`, -`4`, -`3`, -`5`, -`7`, -`8`) %>% 
+    rename(pageID=`2`,
+           name = `6`,
+           pageCreation = `9`)
+  
+})
+
+wp_page_create_query_missing <- lapply(wikipedia_page_extraction_format_missing$search_url, function(i){
+  date <- read_html(i)
+  EntryInfo <- html_nodes(date, ".s2") %>% 
+    html_nodes(xpath="./text()[normalize-space()]") %>% 
+    html_text(trim=TRUE) %>% 
+    as_tibble() %>% 
+    slice_tail(n=9) %>% 
+    rownames_to_column() %>%
+    pivot_longer(-rowname) %>%
+    pivot_wider(names_from = rowname, values_from=value) %>% 
+    select(-name, -`1`, -`4`, -`3`, -`5`, -`7`, -`8`) %>% 
+    rename(pageID=`2`,
+           name = `6`,
+           pageCreation = `9`)
+  
+})
+
+missing_names <- c("Tony Rundle", "Ruth McColl", "Bert Grof", "Wilfred James", 
+                   "William Ellis Green", "Robert Evans (astronomer)", "Peter Bullfrog Moore",
+                   'Wilfred James "Bill" Gray', 'Bela "Bert" Grof', 'Peter "Bullfrog" Moore')
+
+# wp_bind_test <- bind_rows(wp_page_create_query_missing)
+
+##bind rows together
+
+View(wp_page_create_query1)
+wp_page_create_bind <- bind_rows(wp_page_create_query1, wp_page_create_query2, wp_page_create_query3a, 
+                                 wp_page_create_query3b, wp_page_create_query4,wp_page_create_query_missing)
+
+## format file - fixing time zone from UTC to Sydney to ensure correct time calculation
+
+View(wp_page_create_bind)
+View(wp_page_create_format)
+
+wp_page_create_format  <- wp_page_create_bind %>%  
+  clean_names() %>% 
+  mutate(page_id =str_remove_all(page_id , "[[\\p{P}][\\p{S}]]"),
+         name=str_remove_all(name , "\""),
+         page_creation = str_remove_all(page_creation , "\"" ),
+         page_creation = str_remove_all(page_creation , "Z" ),
+         page_creation = str_replace_all(page_creation, "T", " ")) %>% 
+  filter(page_id!="code") %>%
+  mutate(page_creation = ymd_hms(page_creation, tz="UTC")) %>% 
+  mutate(aus_page_creation = with_tz(page_creation, tzone = "Australia/Sydney")) %>% 
+  ##relaces the source code to unicode character for merging
+  mutate(name = stri_unescape_unicode(name)) %>% 
+  rename(wikipedia_page_id = page_id) %>% 
+  mutate(wikipedia_page_id = as.numeric(wikipedia_page_id)) %>% 
+  select(wikipedia_page_id,  aus_page_creation, name) %>% 
+  mutate(name = str_replace(name, 'Bela Bert Grof', 'Bert Grof'))
+  
+
+# View(wikipedia_page_date)
+# View(wikipedia_page_query)
+# View(wp_page_create_format)
+
+# wikipedia_page_query  <- wikipedia_page_query %>% 
+#   select(-name) %>% 
+#   rename(name =name_match_later)
+
+## joining up 
+
+View(wikipedia_page_date)
+View(wp_page_create_format)
+View(wikipedia_page_query)
+
+wikipedia_page_date <- left_join(wp_page_create_format, wikipedia_page_query, by="name") %>% 
+  distinct()
+
+
+
+# id_check <- wikipedia_page_date %>%
+#   filter(is.na(wikipedia_page_id) )
+
+View(wikipedia_page_list)
+View(wikipedia_complete)
+
+wikipedia_complete <- left_join(wikipedia_page_list, wikipedia_page_date, by="wikipedia_url") %>% 
+  rename(award_id = honsid)
+
+# View(honour_1)
+# View(all_data_merge_honsid)
+
+all_data_merge_honsid <- left_join(honour_1, wikipedia_complete, by="award_id") 
+
+wpCheck <- all_data_merge_honsid %>%
+        filter(wikipedia_page=="Yes") %>%
+        select(wikipedia_url) %>%
+        group_by(wikipedia_url) %>%
+        distinct()
+
+# View(data_prep_1)
+
+data_prep_1 <- all_data_merge_honsid %>% 
+  select(-c(award_system, clasp_level, clasp_text, gazette_postcode, additional_info, gazette_given_name, gazette_surname)) 
+
+# id_check <- data_prep_1 %>% 
+#   filter(is.na(wikipedia_page_id)&wikipedia_page =="Yes")
+# 
+# View(id_check)
+# 
+##recoding state etc
+# View(data_prep_1)
+
+data_prep_2 <- data_prep_1 %>% 
+  rename(award_name = award_name.x) %>% 
+  rename(state = gazette_state) %>% 
+  mutate(
+    state = case_when(
+      state == "NSW" |state == "Nsw" |state == "BULLI" |state == "ARMIDALE" |
+        state == "CASTEL HILL" | state == "CASTLE HILL" | state == "COFFS HARBOUR" 
+      | state == "GOULBURN" | state == "WAHROONGA" | state =="NORFOLK ISLAND" ~ "NSW",
+      state =="VIC" | state =="Vic" | state =="Victoria"| state =="PRAHRAN" ~ "VIC",
+      state =="TAS" |state =="Tas" | state =="KING ISLAND TAS" ~ "TAS",
+      state =="WA" ~ "WA",
+      state =="SA" ~ "SA",
+      state =="QLD" | state =="Qld" | state =="CANUNGRA" |state =="HERSTON, QLD" | state =="CAIRNS"   ~ "QLD",
+      state =="NT" ~ "NT",
+      state =="ACT" |state =="BRUCE" |state =="KINGSTON" ~ "ACT",
+      TRUE ~ "Other"
+    )) %>% 
+  mutate(
+    award_abbr2 = case_when(
+      award_name == "Companion of the Order of Australia" ~ "AC",
+      award_name == "Member of the Order of Australia" ~ "AM",
+      award_name == "Officer of the Order of Australia" | award_name == "Honorary Officer of the Order of Australia" ~ "AO",
+      award_name == "Medal of the Order of Australia" ~ "OAM"
+    )) %>% 
+  mutate(award_abbr = ifelse(is.na(award_abbr), award_abbr2, award_abbr)) %>%  
+  
+  mutate(
+    awardComb = case_when(
+      award_abbr == "AD" | award_abbr == "AK" ~ "ADK",
+      award_abbr == "AC" ~ "AC",
+      award_abbr == "AM" ~ "AM",
+      award_abbr == "AO" ~ "AO",
+      award_abbr == "OAM" ~ "OAM"
+    )) %>% 
+  clean_names() %>% 
+  mutate(state = factor(state, levels = c("NSW", "VIC", "QLD", "SA", "TAS", "WA", "ACT", "NT", "Other"))) %>% 
+  mutate(award_comb = factor(award_comb, levels = c("ADK", "AC", "AO", "AM", "OAM")))   
+
+
+##filling in missing names from name variable
+# View(data_prep_3)
+data_prep_3 <- data_prep_2 %>% 
+  mutate(name = ifelse(!is.na(name), name, gazette_name)) %>% 
+  mutate(wikipedia_page = case_when(wikipedia_page=="Yes" ~ "Yes",
+                                    TRUE ~ "No")) 
+
+##sorting dates etc
+# View(data_prep_4)
+
+data_prep_4 <- data_prep_3 %>% 
+  rename(wp_creation_date =aus_page_creation) %>% 
+  filter(awarded_on !="06/13/2022 00:00:00 +00:00") %>% 
+  mutate(awarded_on_full = dmy_hms(awarded_on),
+         honours_date = as_date(awarded_on_full)) %>% 
+  select(-date_awarded, -awarded_on) %>% 
+  mutate(honours_year = year(honours_date),
+         wikipedia_creation_year = year(wp_creation_date))
+
+##fixing queens bday 2022 date order
+
+data_prep_4_qb <- data_prep_3 %>% 
+  rename(wp_creation_date =aus_page_creation) %>% 
+  filter(awarded_on =="06/13/2022 00:00:00 +00:00") %>% 
+  mutate(awarded_on_full = mdy_hms(awarded_on),
+         honours_date = as_date(awarded_on_full)) %>% 
+  select(-date_awarded, -awarded_on) %>% 
+  mutate(honours_year = year(honours_date),
+         wikipedia_creation_year = year(wp_creation_date))
+
+
+# View(data_prep_5)
+
+data_prep_5 <- rbind(data_prep_4, data_prep_4_qb)
+
+
+# View(all_data)
+all_data  <- data_prep_5 %>% 
+  select(name, gender, wikipedia_page, award_comb, state, wikipedia_url, wikipedia_page_id, award_id, wikipedia_page_id, wp_creation_date, 
+         honours_date, wikipedia_creation_year, honours_year, award_name, announcement_event, division, citation, person_description)
+
+# wp_page_check <- all_data %>% 
+#   filter(is.na(wikipedia_page_id) & wikipedia_page == "Yes")
+# # View(wp_page_check)
+
+##recipient list refers to all recipients - data prep_5 is all honours and therevwill be dulicates
+##this holds the min award date as first date / honours is the most recent honourrs 
+# View(recipient)
+
+recipient <- all_data %>% 
+  arrange(name, honours_date) %>% 
+  group_by(name) %>% 
+  add_tally() %>% 
+  # filter(n>1) %>%
+  mutate(first_honours_date = min(honours_date)) %>% 
+  mutate(highestAward1 = case_when(award_comb == "OAM" ~1,
+                                   award_comb == "AM" ~2,
+                                   award_comb == "AO" ~3,
+                                   award_comb == "AC" ~4,
+                                   award_comb == "ADK" ~5)) %>% 
+  mutate(highestAward2 = max(highestAward1)) %>% 
+  mutate(highestAward = case_when(highestAward2 == 1 ~"OAM",
+                                  highestAward2 == 2 ~"AM" ,
+                                  highestAward2 == 3~"AO",
+                                  highestAward2 == 4~"AC",
+                                  highestAward2 == 5 ~"ADK")) %>% 
+  filter(highestAward1 == max(highestAward1)) %>% 
+  rename(numberOfHonours = n) %>% 
+  mutate(first_honours_year = year(first_honours_date) )%>% 
+  select(-c(highestAward1, highestAward2 , highestAward)) %>% 
+  mutate(prePostWikipedia = case_when(first_honours_date<"2001-01-15" ~ "Pre",
+                                      first_honours_date>="2001-01-15" ~ "Post")) %>% 
+  mutate(new_honours_date = replace(first_honours_date, first_honours_date<"2001-01-15", "2001-01-15")) %>% 
+  mutate(new_honours_year = year(new_honours_date)) %>% 
+  ungroup() %>% 
+  clean_names() %>% 
+  select(1:5, first_honours_date, first_honours_year, pre_post_wikipedia, 6:23)
+
+
+## calculates date diff of award and page creation
+
+## sets old dates of honors to the first date wikipedia was operating 
+# View(wikipedia)
+wikipedia <- recipient %>% 
+  filter(wikipedia_page=="Yes") %>% 
+  mutate(new_honours_date = replace(first_honours_date, first_honours_date<"2001-01-15", "2001-01-15")) %>% 
+  mutate(new_honours_year = year(new_honours_date),
+         wp_creation_date = as_date(wp_creation_date),
+         wp_creation_year = year(wp_creation_date),
+         time_diff = wp_creation_date - new_honours_date,
+         year_diff = wp_creation_year - new_honours_year) %>% 
+  mutate(wikipedia_week = strftime(wp_creation_date, format = "%Y-W%V"),
+         new_honours_week = strftime(new_honours_date, format = "%Y-W%V"),
+         week_diff = interval(new_honours_date, wp_creation_date) / dweeks(1),
+         week_diff = floor(week_diff))
+
+# View(week_zero)
+
+week_zero <- wikipedia %>% 
+  filter(week_diff == 0 | week_diff ==1 | week_diff ==-1 ) %>% 
+  select(name, wikipedia_page_id, wikipedia_url, award_name)
+
+
+
+
+
+##citation analysis - 
+
+
+
+##women only - page created before and after honors
+##women only - with and without Wikipedia page
+
