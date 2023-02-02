@@ -1,12 +1,14 @@
 library(tidyverse)
 library(lubridate)
 library(WikipediR)
+library(WikidataQueryServiceR)
 library(httr)
 library(RSelenium)
 library(rvest)
 library(xml2)
 library(janitor)
 library(stringi)
+
 
 honour_1 <- read_csv("master_list.csv") %>% 
   clean_names()
@@ -37,6 +39,13 @@ WHERE {
 
 View(wikidata_data)
 
+##5389 de-duped records
+
+dupe_wiki <- wikidata_data %>% 
+  group_by(personLabel) %>% 
+  mutate(num = row_number()) %>% 
+  filter(num ==1)
+
 
 ## what records have no honsid on file - sweep 1
 wikidata_data_id_na <- wikidata_data %>% 
@@ -50,6 +59,7 @@ wikidata_data_id <- wikidata_data %>%
 
 
 ##getting honoursid from the refurl of the honors listing then merging back into wikidata extract
+View(award_url_hons_id_fix1)
 
 award_url_hons_id_fix1 <- wikidata_data_id_na %>% 
   mutate(newid = refurl) %>% 
@@ -81,10 +91,15 @@ View(wikidata)
 wikidata_wp <- wikidata %>% 
   filter (!is.na(sitelink))
 
-# wikidata_duplicates <- wikidata_wp %>% 
-#   group_by(sitelink) %>% 
-#   count(sitelink) %>% 
-#   filter(n>1) %>% 
+wikidata_data_id <- wikidata_wp %>% 
+  filter(is.na(honsid))
+
+# View(wikidata_duplicates)
+# 
+# wikidata_duplicates <- wikidata_wp %>%
+#   group_by(sitelink) %>%
+#   count(sitelink) %>%
+#   filter(n>1) %>%
 #   tally()
 
 
@@ -109,6 +124,7 @@ wikipedia_page_list <- wikidata_wp %>%
 
 View(wikipedia_page_query)
 View(wikipedia_page_list)
+
 
 wikipedia_page_query <- wikipedia_page_list %>%
   select(wikipedia_url, personLabel) %>% 
@@ -156,6 +172,9 @@ wp_5 <- wikipedia_page_query %>%
 
 # getinfo <- page_info("en", "wikipedia", page="Ken Wallace (canoeist)", clean_response = TRUE)
 
+getinfo_missing_Barbara_York <- page_info("en", "wikipedia", page="Barbara York Main", clean_response = TRUE)
+getinfo_missing_Sue_packer <- page_info("en", "wikipedia", page="Sue Packer", clean_response = TRUE)
+
 
 wikipedia_page_extraction_1 <- lapply(wp_1$name, function (i) {
   getinfo <- page_info("en", "wikipedia", page=i , clean_response = TRUE) 
@@ -193,9 +212,13 @@ wikipedia_page_extraction_unlist_5 <- unlist(wikipedia_page_extraction_5, recurs
 
 
 ##combining the lists
-wikipedia_page_extraction_unlist <- c(wikipedia_page_extraction_unlist_1, wikipedia_page_extraction_unlist_2, 
-                                      wikipedia_page_extraction_unlist_3, wikipedia_page_extraction_unlist_4,
-                                      wikipedia_page_extraction_unlist_5)
+wikipedia_page_extraction_unlist <- c(wikipedia_page_extraction_unlist_1,
+                                      wikipedia_page_extraction_unlist_2,
+                                      wikipedia_page_extraction_unlist_3,
+                                      wikipedia_page_extraction_unlist_4,
+                                      wikipedia_page_extraction_unlist_5,
+                                      getinfo_missing_Barbara_York,
+                                      getinfo_missing_Sue_packer)
 
 
 ## formatting for extraction
@@ -229,14 +252,13 @@ wikipedia_page_extraction_format <- tibble (
   rename(wp_pageid = pageid) 
 
 
-  
-
-
 missing_names <- c("Tony Rundle", "Ruth McColl", "Bert Grof", "Wilfred James", 
                    "William Ellis Green", "Robert Evans (astronomer)", "Peter Bullfrog Moore",
-                   'Wilfred James "Bill" Gray', 'Bela "Bert" Grof', 'Peter "Bullfrog" Moore')
+                   'Wilfred James "Bill" Gray', 'Bela "Bert" Grof', 'Peter "Bullfrog" Moore',
+                   "Barbara York Main", "Sue Packer", "Margel Hinder", "Ian Freckelton", 
+                   "Richard Scolyer", "Betty Burstall", "Tony Strahan", 'Graeme Stewart (immunology)')
 
-View(wikipedia_page_extraction_format_missing)
+
 wikipedia_page_extraction_format_missing <- wikipedia_page_extraction_format %>% 
   filter(display_name %in% (missing_names) | wp_url  %in% (missing_names)) %>% 
   select(wp_pageid) %>% 
@@ -245,30 +267,77 @@ wikipedia_page_extraction_format_missing <- wikipedia_page_extraction_format %>%
   mutate(search_url=paste(base, wp_pageid, sep = "")) %>% 
   select(search_url) 
   
-
-
-
-
-
+View(wikipedia_page_extraction_format_missing)
 
 ##slicing and getting data ready for running query of page creation
 View(wp_page_create_search1)
-wp_page_create_search1 <- wikipedia_page_extraction_format %>% 
+
+wp_page_create_search1a <- wikipedia_page_extraction_format %>% 
   select(wp_pageid) %>% 
   distinct() %>% 
   mutate(base = "https://en.wikipedia.org/w/api.php?action=query&prop=revisions&rvlimit=1&rvprop=timestamp&rvdir=newer&pageids=") %>% 
   mutate(search_url=paste(base, wp_pageid, sep = "")) %>% 
   select(search_url) %>% 
-  slice(1:1000)
+  slice(1:250)
 
-wp_page_create_search2 <- wikipedia_page_extraction_format %>% 
+
+wp_page_create_search1b <- wikipedia_page_extraction_format %>% 
   select(wp_pageid) %>% 
   distinct() %>% 
   mutate(base = "https://en.wikipedia.org/w/api.php?action=query&prop=revisions&rvlimit=1&rvprop=timestamp&rvdir=newer&pageids=") %>% 
   mutate(search_url=paste(base, wp_pageid, sep = "")) %>% 
   select(search_url) %>% 
-  slice(1001:2000)
+  slice(251:500)
 
+
+wp_page_create_search1c <- wikipedia_page_extraction_format %>% 
+  select(wp_pageid) %>% 
+  distinct() %>% 
+  mutate(base = "https://en.wikipedia.org/w/api.php?action=query&prop=revisions&rvlimit=1&rvprop=timestamp&rvdir=newer&pageids=") %>% 
+  mutate(search_url=paste(base, wp_pageid, sep = "")) %>% 
+  select(search_url) %>% 
+  slice(501:750)
+
+wp_page_create_search1d <- wikipedia_page_extraction_format %>% 
+  select(wp_pageid) %>% 
+  distinct() %>% 
+  mutate(base = "https://en.wikipedia.org/w/api.php?action=query&prop=revisions&rvlimit=1&rvprop=timestamp&rvdir=newer&pageids=") %>% 
+  mutate(search_url=paste(base, wp_pageid, sep = "")) %>% 
+  select(search_url) %>% 
+  slice(751:1000)
+
+
+wp_page_create_search2a <- wikipedia_page_extraction_format %>% 
+  select(wp_pageid) %>% 
+  distinct() %>% 
+  mutate(base = "https://en.wikipedia.org/w/api.php?action=query&prop=revisions&rvlimit=1&rvprop=timestamp&rvdir=newer&pageids=") %>% 
+  mutate(search_url=paste(base, wp_pageid, sep = "")) %>% 
+  select(search_url) %>% 
+  slice(1001:1250)
+
+wp_page_create_search2b <- wikipedia_page_extraction_format %>% 
+  select(wp_pageid) %>% 
+  distinct() %>% 
+  mutate(base = "https://en.wikipedia.org/w/api.php?action=query&prop=revisions&rvlimit=1&rvprop=timestamp&rvdir=newer&pageids=") %>% 
+  mutate(search_url=paste(base, wp_pageid, sep = "")) %>% 
+  select(search_url) %>% 
+  slice(1251:1500)
+
+wp_page_create_search2c <- wikipedia_page_extraction_format %>% 
+  select(wp_pageid) %>% 
+  distinct() %>% 
+  mutate(base = "https://en.wikipedia.org/w/api.php?action=query&prop=revisions&rvlimit=1&rvprop=timestamp&rvdir=newer&pageids=") %>% 
+  mutate(search_url=paste(base, wp_pageid, sep = "")) %>% 
+  select(search_url) %>% 
+  slice(1501:1750)
+
+wp_page_create_search2d <- wikipedia_page_extraction_format %>% 
+  select(wp_pageid) %>% 
+  distinct() %>% 
+  mutate(base = "https://en.wikipedia.org/w/api.php?action=query&prop=revisions&rvlimit=1&rvprop=timestamp&rvdir=newer&pageids=") %>% 
+  mutate(search_url=paste(base, wp_pageid, sep = "")) %>% 
+  select(search_url) %>% 
+  slice(1751:2000)
 
 # wp_page_create_search3 <- wikipedia_page_extraction_format %>% 
 #   select(wp_pageid) %>% 
@@ -284,7 +353,7 @@ wp_page_create_search3a <- wikipedia_page_extraction_format %>%
   mutate(base = "https://en.wikipedia.org/w/api.php?action=query&prop=revisions&rvlimit=1&rvprop=timestamp&rvdir=newer&pageids=") %>% 
   mutate(search_url=paste(base, wp_pageid, sep = "")) %>% 
   select(search_url) %>% 
-  slice(2001:2500)
+  slice(2001:2250)
 
 wp_page_create_search3b <- wikipedia_page_extraction_format %>% 
   select(wp_pageid) %>% 
@@ -292,19 +361,86 @@ wp_page_create_search3b <- wikipedia_page_extraction_format %>%
   mutate(base = "https://en.wikipedia.org/w/api.php?action=query&prop=revisions&rvlimit=1&rvprop=timestamp&rvdir=newer&pageids=") %>% 
   mutate(search_url=paste(base, wp_pageid, sep = "")) %>% 
   select(search_url) %>% 
-  slice(2501:3000)
+  slice(2251:2500)
 
-wp_page_create_search4 <- wikipedia_page_extraction_format %>% 
+wp_page_create_search3c <- wikipedia_page_extraction_format %>% 
   select(wp_pageid) %>% 
   distinct() %>% 
   mutate(base = "https://en.wikipedia.org/w/api.php?action=query&prop=revisions&rvlimit=1&rvprop=timestamp&rvdir=newer&pageids=") %>% 
   mutate(search_url=paste(base, wp_pageid, sep = "")) %>% 
   select(search_url) %>% 
-  slice(3001:6000)
+  slice(2501:2750)
+
+wp_page_create_search3d <- wikipedia_page_extraction_format %>% 
+  select(wp_pageid) %>% 
+  distinct() %>% 
+  mutate(base = "https://en.wikipedia.org/w/api.php?action=query&prop=revisions&rvlimit=1&rvprop=timestamp&rvdir=newer&pageids=") %>% 
+  mutate(search_url=paste(base, wp_pageid, sep = "")) %>% 
+  select(search_url) %>% 
+  slice(2751:3000)
+
+wp_page_create_search4a <- wikipedia_page_extraction_format %>% 
+  select(wp_pageid) %>% 
+  distinct() %>% 
+  mutate(base = "https://en.wikipedia.org/w/api.php?action=query&prop=revisions&rvlimit=1&rvprop=timestamp&rvdir=newer&pageids=") %>% 
+  mutate(search_url=paste(base, wp_pageid, sep = "")) %>% 
+  select(search_url) %>% 
+  slice(3001:3250)
+
+
+wp_page_create_search4b <- wikipedia_page_extraction_format %>% 
+  select(wp_pageid) %>% 
+  distinct() %>% 
+  mutate(base = "https://en.wikipedia.org/w/api.php?action=query&prop=revisions&rvlimit=1&rvprop=timestamp&rvdir=newer&pageids=") %>% 
+  mutate(search_url=paste(base, wp_pageid, sep = "")) %>% 
+  select(search_url) %>% 
+  slice(3251:3500)
+
+
+wp_page_create_search4c <- wikipedia_page_extraction_format %>% 
+  select(wp_pageid) %>% 
+  distinct() %>% 
+  mutate(base = "https://en.wikipedia.org/w/api.php?action=query&prop=revisions&rvlimit=1&rvprop=timestamp&rvdir=newer&pageids=") %>% 
+  mutate(search_url=paste(base, wp_pageid, sep = "")) %>% 
+  select(search_url) %>% 
+  slice(3501:3750)
+
+wp_page_create_search4d <- wikipedia_page_extraction_format %>% 
+  select(wp_pageid) %>% 
+  distinct() %>% 
+  mutate(base = "https://en.wikipedia.org/w/api.php?action=query&prop=revisions&rvlimit=1&rvprop=timestamp&rvdir=newer&pageids=") %>% 
+  mutate(search_url=paste(base, wp_pageid, sep = "")) %>% 
+  select(search_url) %>% 
+  slice(3751:4000)
+
+wp_page_create_search4e <- wikipedia_page_extraction_format %>% 
+  select(wp_pageid) %>% 
+  distinct() %>% 
+  mutate(base = "https://en.wikipedia.org/w/api.php?action=query&prop=revisions&rvlimit=1&rvprop=timestamp&rvdir=newer&pageids=") %>% 
+  mutate(search_url=paste(base, wp_pageid, sep = "")) %>% 
+  select(search_url) %>% 
+  slice(4001:4250)
+
+wp_page_create_search4f <- wikipedia_page_extraction_format %>% 
+  select(wp_pageid) %>% 
+  distinct() %>% 
+  mutate(base = "https://en.wikipedia.org/w/api.php?action=query&prop=revisions&rvlimit=1&rvprop=timestamp&rvdir=newer&pageids=") %>% 
+  mutate(search_url=paste(base, wp_pageid, sep = "")) %>% 
+  select(search_url) %>% 
+  slice(4251:4500)
+
+wp_page_create_search4g <- wikipedia_page_extraction_format %>% 
+  select(wp_pageid) %>% 
+  distinct() %>% 
+  mutate(base = "https://en.wikipedia.org/w/api.php?action=query&prop=revisions&rvlimit=1&rvprop=timestamp&rvdir=newer&pageids=") %>% 
+  mutate(search_url=paste(base, wp_pageid, sep = "")) %>% 
+  select(search_url) %>% 
+  slice(4501:5000)
+
 
 # query of page creation date for each data set
 
-wp_page_create_query1 <- lapply(wp_page_create_search1$search_url, function(i){
+wp_page_create_query1a <- lapply(wp_page_create_search1a$search_url, function(i){
   
   date <- read_html(i)
   
@@ -323,7 +459,7 @@ wp_page_create_query1 <- lapply(wp_page_create_search1$search_url, function(i){
   
 })
 
-wp_page_create_query2 <- lapply(wp_page_create_search2$search_url, function(i){
+wp_page_create_query1b <- lapply(wp_page_create_search1b$search_url, function(i){
   
   date <- read_html(i)
   
@@ -342,6 +478,120 @@ wp_page_create_query2 <- lapply(wp_page_create_search2$search_url, function(i){
   
 })
 
+wp_page_create_query1c <- lapply(wp_page_create_search1c$search_url, function(i){
+  
+  date <- read_html(i)
+  
+  EntryInfo <- html_nodes(date, ".s2") %>% 
+    html_nodes(xpath="./text()[normalize-space()]") %>% 
+    html_text(trim=TRUE) %>% 
+    as_tibble() %>% 
+    slice_tail(n=9) %>% 
+    rownames_to_column() %>%
+    pivot_longer(-rowname) %>%
+    pivot_wider(names_from = rowname, values_from=value) %>% 
+    select(-name, -`1`, -`4`, -`3`, -`5`, -`7`, -`8`) %>% 
+    rename(pageID=`2`,
+           name = `6`,
+           pageCreation = `9`)
+  
+})
+
+wp_page_create_query1d <- lapply(wp_page_create_search1d$search_url, function(i){
+  
+  date <- read_html(i)
+  
+  EntryInfo <- html_nodes(date, ".s2") %>% 
+    html_nodes(xpath="./text()[normalize-space()]") %>% 
+    html_text(trim=TRUE) %>% 
+    as_tibble() %>% 
+    slice_tail(n=9) %>% 
+    rownames_to_column() %>%
+    pivot_longer(-rowname) %>%
+    pivot_wider(names_from = rowname, values_from=value) %>% 
+    select(-name, -`1`, -`4`, -`3`, -`5`, -`7`, -`8`) %>% 
+    rename(pageID=`2`,
+           name = `6`,
+           pageCreation = `9`)
+  
+})
+
+wp_page_create_query2a <- lapply(wp_page_create_search2a$search_url, function(i){
+  
+  date <- read_html(i)
+  
+  EntryInfo <- html_nodes(date, ".s2") %>% 
+    html_nodes(xpath="./text()[normalize-space()]") %>% 
+    html_text(trim=TRUE) %>% 
+    as_tibble() %>% 
+    slice_tail(n=9) %>% 
+    rownames_to_column() %>%
+    pivot_longer(-rowname) %>%
+    pivot_wider(names_from = rowname, values_from=value) %>% 
+    select(-name, -`1`, -`4`, -`3`, -`5`, -`7`, -`8`) %>% 
+    rename(pageID=`2`,
+           name = `6`,
+           pageCreation = `9`)
+  
+})
+
+
+wp_page_create_query2b <- lapply(wp_page_create_search2b$search_url, function(i){
+  
+  date <- read_html(i)
+  
+  EntryInfo <- html_nodes(date, ".s2") %>% 
+    html_nodes(xpath="./text()[normalize-space()]") %>% 
+    html_text(trim=TRUE) %>% 
+    as_tibble() %>% 
+    slice_tail(n=9) %>% 
+    rownames_to_column() %>%
+    pivot_longer(-rowname) %>%
+    pivot_wider(names_from = rowname, values_from=value) %>% 
+    select(-name, -`1`, -`4`, -`3`, -`5`, -`7`, -`8`) %>% 
+    rename(pageID=`2`,
+           name = `6`,
+           pageCreation = `9`)
+  
+})
+
+wp_page_create_query2c <- lapply(wp_page_create_search2c$search_url, function(i){
+  
+  date <- read_html(i)
+  
+  EntryInfo <- html_nodes(date, ".s2") %>% 
+    html_nodes(xpath="./text()[normalize-space()]") %>% 
+    html_text(trim=TRUE) %>% 
+    as_tibble() %>% 
+    slice_tail(n=9) %>% 
+    rownames_to_column() %>%
+    pivot_longer(-rowname) %>%
+    pivot_wider(names_from = rowname, values_from=value) %>% 
+    select(-name, -`1`, -`4`, -`3`, -`5`, -`7`, -`8`) %>% 
+    rename(pageID=`2`,
+           name = `6`,
+           pageCreation = `9`)
+  
+})
+
+wp_page_create_query2d <- lapply(wp_page_create_search2d$search_url, function(i){
+  
+  date <- read_html(i)
+  
+  EntryInfo <- html_nodes(date, ".s2") %>% 
+    html_nodes(xpath="./text()[normalize-space()]") %>% 
+    html_text(trim=TRUE) %>% 
+    as_tibble() %>% 
+    slice_tail(n=9) %>% 
+    rownames_to_column() %>%
+    pivot_longer(-rowname) %>%
+    pivot_wider(names_from = rowname, values_from=value) %>% 
+    select(-name, -`1`, -`4`, -`3`, -`5`, -`7`, -`8`) %>% 
+    rename(pageID=`2`,
+           name = `6`,
+           pageCreation = `9`)
+  
+})
 
 # View(wp_page_create_search3)
 wp_page_create_query3a <- lapply(wp_page_create_search3a$search_url, function(i){
@@ -384,7 +634,49 @@ wp_page_create_query3b <- lapply(wp_page_create_search3b$search_url, function(i)
   
 })
 
-wp_page_create_query4 <- lapply(wp_page_create_search4$search_url, function(i){
+wp_page_create_query3c <- lapply(wp_page_create_search3c$search_url, function(i){
+  
+  
+  date <- read_html(i)
+  
+  EntryInfo <- html_nodes(date, ".s2") %>% 
+    html_nodes(xpath="./text()[normalize-space()]") %>% 
+    html_text(trim=TRUE) %>% 
+    as_tibble() %>% 
+    slice_tail(n=9) %>% 
+    rownames_to_column() %>%
+    pivot_longer(-rowname) %>%
+    pivot_wider(names_from = rowname, values_from=value) %>% 
+    select(-name, -`1`, -`4`, -`3`, -`5`, -`7`, -`8`) %>% 
+    rename(pageID=`2`,
+           name = `6`,
+           pageCreation = `9`)
+  
+})
+
+wp_page_create_query3d <- lapply(wp_page_create_search3d$search_url, function(i){
+  
+  
+  date <- read_html(i)
+  
+  EntryInfo <- html_nodes(date, ".s2") %>% 
+    html_nodes(xpath="./text()[normalize-space()]") %>% 
+    html_text(trim=TRUE) %>% 
+    as_tibble() %>% 
+    slice_tail(n=9) %>% 
+    rownames_to_column() %>%
+    pivot_longer(-rowname) %>%
+    pivot_wider(names_from = rowname, values_from=value) %>% 
+    select(-name, -`1`, -`4`, -`3`, -`5`, -`7`, -`8`) %>% 
+    rename(pageID=`2`,
+           name = `6`,
+           pageCreation = `9`)
+  
+})
+
+
+
+wp_page_create_query4a <- lapply(wp_page_create_search4a$search_url, function(i){
   date <- read_html(i)
   EntryInfo <- html_nodes(date, ".s2") %>% 
     html_nodes(xpath="./text()[normalize-space()]") %>% 
@@ -400,6 +692,111 @@ wp_page_create_query4 <- lapply(wp_page_create_search4$search_url, function(i){
            pageCreation = `9`)
   
 })
+
+
+wp_page_create_query4b <- lapply(wp_page_create_search4b$search_url, function(i){
+  date <- read_html(i)
+  EntryInfo <- html_nodes(date, ".s2") %>% 
+    html_nodes(xpath="./text()[normalize-space()]") %>% 
+    html_text(trim=TRUE) %>% 
+    as_tibble() %>% 
+    slice_tail(n=9) %>% 
+    rownames_to_column() %>%
+    pivot_longer(-rowname) %>%
+    pivot_wider(names_from = rowname, values_from=value) %>% 
+    select(-name, -`1`, -`4`, -`3`, -`5`, -`7`, -`8`) %>% 
+    rename(pageID=`2`,
+           name = `6`,
+           pageCreation = `9`)
+  
+})
+
+wp_page_create_query4c <- lapply(wp_page_create_search4c$search_url, function(i){
+  date <- read_html(i)
+  EntryInfo <- html_nodes(date, ".s2") %>% 
+    html_nodes(xpath="./text()[normalize-space()]") %>% 
+    html_text(trim=TRUE) %>% 
+    as_tibble() %>% 
+    slice_tail(n=9) %>% 
+    rownames_to_column() %>%
+    pivot_longer(-rowname) %>%
+    pivot_wider(names_from = rowname, values_from=value) %>% 
+    select(-name, -`1`, -`4`, -`3`, -`5`, -`7`, -`8`) %>% 
+    rename(pageID=`2`,
+           name = `6`,
+           pageCreation = `9`)
+  
+})
+
+wp_page_create_query4d <- lapply(wp_page_create_search4d$search_url, function(i){
+  date <- read_html(i)
+  EntryInfo <- html_nodes(date, ".s2") %>% 
+    html_nodes(xpath="./text()[normalize-space()]") %>% 
+    html_text(trim=TRUE) %>% 
+    as_tibble() %>% 
+    slice_tail(n=9) %>% 
+    rownames_to_column() %>%
+    pivot_longer(-rowname) %>%
+    pivot_wider(names_from = rowname, values_from=value) %>% 
+    select(-name, -`1`, -`4`, -`3`, -`5`, -`7`, -`8`) %>% 
+    rename(pageID=`2`,
+           name = `6`,
+           pageCreation = `9`)
+  
+})
+
+
+wp_page_create_query4e<- lapply(wp_page_create_search4e$search_url, function(i){
+  date <- read_html(i)
+  EntryInfo <- html_nodes(date, ".s2") %>% 
+    html_nodes(xpath="./text()[normalize-space()]") %>% 
+    html_text(trim=TRUE) %>% 
+    as_tibble() %>% 
+    slice_tail(n=9) %>% 
+    rownames_to_column() %>%
+    pivot_longer(-rowname) %>%
+    pivot_wider(names_from = rowname, values_from=value) %>% 
+    select(-name, -`1`, -`4`, -`3`, -`5`, -`7`, -`8`) %>% 
+    rename(pageID=`2`,
+           name = `6`,
+           pageCreation = `9`)
+  
+})
+
+wp_page_create_query4f<- lapply(wp_page_create_search4f$search_url, function(i){
+  date <- read_html(i)
+  EntryInfo <- html_nodes(date, ".s2") %>% 
+    html_nodes(xpath="./text()[normalize-space()]") %>% 
+    html_text(trim=TRUE) %>% 
+    as_tibble() %>% 
+    slice_tail(n=9) %>% 
+    rownames_to_column() %>%
+    pivot_longer(-rowname) %>%
+    pivot_wider(names_from = rowname, values_from=value) %>% 
+    select(-name, -`1`, -`4`, -`3`, -`5`, -`7`, -`8`) %>% 
+    rename(pageID=`2`,
+           name = `6`,
+           pageCreation = `9`)
+  
+})
+
+wp_page_create_query4g<- lapply(wp_page_create_search4g$search_url, function(i){
+  date <- read_html(i)
+  EntryInfo <- html_nodes(date, ".s2") %>% 
+    html_nodes(xpath="./text()[normalize-space()]") %>% 
+    html_text(trim=TRUE) %>% 
+    as_tibble() %>% 
+    slice_tail(n=9) %>% 
+    rownames_to_column() %>%
+    pivot_longer(-rowname) %>%
+    pivot_wider(names_from = rowname, values_from=value) %>% 
+    select(-name, -`1`, -`4`, -`3`, -`5`, -`7`, -`8`) %>% 
+    rename(pageID=`2`,
+           name = `6`,
+           pageCreation = `9`)
+  
+})
+
 
 wp_page_create_query_missing <- lapply(wikipedia_page_extraction_format_missing$search_url, function(i){
   date <- read_html(i)
@@ -418,24 +815,24 @@ wp_page_create_query_missing <- lapply(wikipedia_page_extraction_format_missing$
   
 })
 
-missing_names <- c("Tony Rundle", "Ruth McColl", "Bert Grof", "Wilfred James", 
-                   "William Ellis Green", "Robert Evans (astronomer)", "Peter Bullfrog Moore",
-                   'Wilfred James "Bill" Gray', 'Bela "Bert" Grof', 'Peter "Bullfrog" Moore')
-
 # wp_bind_test <- bind_rows(wp_page_create_query_missing)
 
 ##bind rows together
 
-View(wp_page_create_query1)
-wp_page_create_bind <- bind_rows(wp_page_create_query1, wp_page_create_query2, wp_page_create_query3a, 
-                                 wp_page_create_query3b, wp_page_create_query4,wp_page_create_query_missing)
+# View(wp_page_create_query1)
+wp_page_create_bind <- bind_rows(wp_page_create_query1a, wp_page_create_query1b, wp_page_create_query1c,  wp_page_create_query1d,
+                                 wp_page_create_query2a, wp_page_create_query2b, wp_page_create_query2c, wp_page_create_query2d,
+                                 wp_page_create_query3a, wp_page_create_query3b, wp_page_create_query3c, wp_page_create_query3d,
+                                wp_page_create_query4a, wp_page_create_query4b, wp_page_create_query4c, wp_page_create_query4d, 
+                                wp_page_create_query4e, wp_page_create_query4f, wp_page_create_query4g,
+                                 wp_page_create_query_missing)
 
 ## format file - fixing time zone from UTC to Sydney to ensure correct time calculation
 
 View(wp_page_create_bind)
 View(wp_page_create_format)
 
-wp_page_create_format  <- wp_page_create_bind %>%  
+wp_page_create_format <- wp_page_create_bind %>%  
   clean_names() %>% 
   mutate(page_id =str_remove_all(page_id , "[[\\p{P}][\\p{S}]]"),
          name=str_remove_all(name , "\""),
@@ -450,12 +847,20 @@ wp_page_create_format  <- wp_page_create_bind %>%
   rename(wikipedia_page_id = page_id) %>% 
   mutate(wikipedia_page_id = as.numeric(wikipedia_page_id)) %>% 
   select(wikipedia_page_id,  aus_page_creation, name) %>% 
-  mutate(name = str_replace(name, 'Bela Bert Grof', 'Bert Grof'))
+  mutate(name = str_replace(name, 'Bela Bert Grof', 'Bert Grof')) %>% 
+  mutate(name = str_replace_all(name, fixed('Alan Ferguson (politician)'), 'Alan Ferguson')) %>% 
+  mutate(name = str_replace_all(name, fixed('Judy Henderson'), 'Judy Henderson (environmentalist)')) %>% 
+  mutate(name = str_replace_all(name, fixed('Robert Hammond (field hockey)'), 'Robert Hammond')) %>% 
+  mutate(name = str_replace_all(name, 'Michael Hintze, Baron Hintze', 'Michael Hintze'))
+  
   
 
+
+write_csv(wp_page_create_format, "wp_page_create_format.csv")
 # View(wikipedia_page_date)
 # View(wikipedia_page_query)
 # View(wp_page_create_format)
+
 
 # wikipedia_page_query  <- wikipedia_page_query %>% 
 #   select(-name) %>% 
@@ -479,12 +884,16 @@ View(wikipedia_page_list)
 View(wikipedia_complete)
 
 wikipedia_complete <- left_join(wikipedia_page_list, wikipedia_page_date, by="wikipedia_url") %>% 
-  rename(award_id = honsid)
+  rename(award_id = honsid) %>% 
+  distinct()
 
 # View(honour_1)
 # View(all_data_merge_honsid)
 
-all_data_merge_honsid <- left_join(honour_1, wikipedia_complete, by="award_id") 
+all_data_merge_honsid <- left_join(honour_1, wikipedia_complete, by="award_id") %>% 
+  distinct()
+
+
 
 wpCheck <- all_data_merge_honsid %>%
         filter(wikipedia_page=="Yes") %>%
@@ -497,10 +906,10 @@ wpCheck <- all_data_merge_honsid %>%
 data_prep_1 <- all_data_merge_honsid %>% 
   select(-c(award_system, clasp_level, clasp_text, gazette_postcode, additional_info, gazette_given_name, gazette_surname)) 
 
-# id_check <- data_prep_1 %>% 
-#   filter(is.na(wikipedia_page_id)&wikipedia_page =="Yes")
-# 
-# View(id_check)
+id_check <- data_prep_1 %>%
+  filter(is.na(wikipedia_page_id)&wikipedia_page =="Yes")
+
+View(id_check)
 # 
 ##recoding state etc
 # View(data_prep_1)
@@ -585,6 +994,8 @@ all_data  <- data_prep_5 %>%
   select(name, gender, wikipedia_page, award_comb, state, wikipedia_url, wikipedia_page_id, award_id, wikipedia_page_id, wp_creation_date, 
          honours_date, wikipedia_creation_year, honours_year, award_name, announcement_event, division, citation, person_description)
 
+write_csv(all_data, "all_data.csv")
+
 # wp_page_check <- all_data %>% 
 #   filter(is.na(wikipedia_page_id) & wikipedia_page == "Yes")
 # # View(wp_page_check)
@@ -622,6 +1033,7 @@ recipient <- all_data %>%
   clean_names() %>% 
   select(1:5, first_honours_date, first_honours_year, pre_post_wikipedia, 6:23)
 
+write_csv(recipient, "recipient.csv")
 
 ## calculates date diff of award and page creation
 
@@ -638,7 +1050,10 @@ wikipedia <- recipient %>%
   mutate(wikipedia_week = strftime(wp_creation_date, format = "%Y-W%V"),
          new_honours_week = strftime(new_honours_date, format = "%Y-W%V"),
          week_diff = interval(new_honours_date, wp_creation_date) / dweeks(1),
-         week_diff = floor(week_diff))
+         week_diff = floor(week_diff)) %>% 
+  distinct()
+
+write_csv(wikipedia, "wikipedia.csv")
 
 # View(week_zero)
 
