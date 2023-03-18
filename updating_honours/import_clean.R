@@ -13,6 +13,7 @@ library(stringi)
 honour_1 <- read_csv("master_list.csv") %>% 
   clean_names()
 
+
 # View(honour_1)
 
 ##extracting details from wikidata - using WikidataQueryServiceR
@@ -41,10 +42,25 @@ View(wikidata_data)
 
 ##5389 de-duped records
 
+
+
+data <- wikidata_data %>%
+  mutate(return_remove = case_when(person_label == "Richard Pratt" ~ "removed",
+                                   person_label == "Geoffrey Smith" ~ "removed",
+                                   person_label == "Peter Harrison" ~ "removed",
+                                   person_label == "Dyson Heydon" ~ "removed",
+                                   
+                                   ))
+
+## Notes Geoffry Smith had award terminated
+# Richard Pratt had award 
+
+View(dupe_wiki)
+
 dupe_wiki <- wikidata_data %>% 
-  group_by(personLabel) %>% 
+  group_by(personLabel, honsid) %>% 
   mutate(num = row_number()) %>% 
-  filter(num ==1)
+  filter(num== 1 & num ==2)
 
 
 ## what records have no honsid on file - sweep 1

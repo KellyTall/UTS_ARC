@@ -1,6 +1,7 @@
 library(tidytext) 
 library(tidyverse)
 library(scales)
+library(janitor)
 
 wp_format <-  theme(
   legend.background = element_rect(fill = "white", size = 4, colour = "white"),
@@ -15,6 +16,7 @@ wp_format <-  theme(
 ##trans females have been classified here as females
 
 View(wikipedia)
+wikipedia <- read.csv("wikipedia.csv")
 
 text_data_prep_prepost <- wikipedia %>% 
   mutate(gender = case_when(gender == "TF" ~"F",
@@ -34,7 +36,9 @@ text_data_prepost <-  text_data_prep_prepost %>%
   anti_join(stop_words) %>%
   filter(!word %in% filter_words) %>%
   count(word, sort=TRUE) %>% 
-  pivot_wider(names_from = before_after, values_from = n)
+  pivot_wider(names_from = before_after, values_from = n) %>% 
+  clean_names()
+
 
   # View(text_data_prepost_tf)
 
@@ -44,18 +48,22 @@ text_data_prepost <-  text_data_prep_prepost %>%
 #   bind_tf_idf(word, before_after, n) %>% 
 #   pivot_wider(names_from = before_after, values_from = tf_idf)
 
-scatter_pre_post <- ggplot(text_data_prepost, aes(`Before Honours`, `After Honours`)) +
+View(text_data_prepost)
+
+scatter_pre_post <- ggplot(text_data_prepost, aes(before_honours, after_honours)) +
   geom_jitter(alpha = 0.4, size = 2.5, width = 0.25, height = 0.25, shape= 21, 
               fill="mediumpurple", colour="white", stroke=2) +
-  geom_text(aes(label = word), check_overlap = TRUE, vjust = 1.5) +
-  scale_x_log10(labels = percent_format()) +
-  scale_y_log10(labels = percent_format()) +
+  geom_text(aes(label = word), check_overlap = TRUE) +
+  scale_x_log10() +
+  scale_y_log10() +
   geom_abline(color = "cornflowerblue", alpha=.9)+
   wp_format+
   theme_minimal()+
-  labs(title = "Wikipedia Biographies of Order of Australia Recipients", 
-       subtitle = "Pages created before or after award received. Chart shows frequency of words 
-       used in citation")
+  labs(title = "Citations describing achievements of female recipients of Order of Australia who have Wikipedia Page", 
+       subtitle = "Showing difference of words used in Order citation between pages created before or after Order received.",
+       x="Page created before Order received",
+       y="Page created after Order received",
+       caption = "\nCitations of n=1,352 Female recipients of Order of Australia.")
 
  scatter_pre_post
 
