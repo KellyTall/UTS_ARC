@@ -402,6 +402,8 @@ wp_page_create_search10 <- wikipedia_page_extraction_format %>%
   select(search_url) %>% 
   slice(2251:2500)
 
+View(wp_page_create_search12)
+
 wp_page_create_search11 <- wikipedia_page_extraction_format %>% 
   select(wp_pageid) %>% 
   distinct() %>% 
@@ -981,8 +983,6 @@ all_data_merge_honsid <- left_join(honour_1, wikipedia_complete, by="award_id", 
 
   
 
-
-
 wpCheck <- wikipedia_complete %>%
   tally()
   filter(wikipedia_page=="Yes") %>% 
@@ -1091,27 +1091,34 @@ write_csv(all_data, "all_data.csv")
 #   filter(is.na(wikipedia_page_id) & wikipedia_page == "Yes")
 # # View(wp_page_check)
 
-##recipient list refers to all recipients - data prep_5 is all honours and therevwill be dulicates
-##this holds the min award date as first date / honours is the most recent honourrs 
+##recipient list refers to all recipients - data prep_5 is all honours and there will be duplicates
+##this holds the min award date as first date / honors is the most recent honors 
 # View(recipient)
 
 recipient <- all_data %>% 
   arrange(name, honours_date) %>% 
   group_by(name) %>% 
-  add_tally() %>% 
+  add_tally() 
+
+recipient_2 <- recipient %>% 
   # filter(n>1) %>%
   mutate(first_honours_date = min(honours_date)) %>% 
   mutate(highestAward1 = case_when(award_comb == "OAM" ~1,
                                    award_comb == "AM" ~2,
                                    award_comb == "AO" ~3,
                                    award_comb == "AC" ~4,
-                                   award_comb == "ADK" ~5)) %>% 
+                                   award_comb == "ADK" ~5)) 
+
+recipient_3 <- recipient_2 %>% 
   mutate(highestAward2 = max(highestAward1)) %>% 
   mutate(highestAward = case_when(highestAward2 == 1 ~"OAM",
                                   highestAward2 == 2 ~"AM" ,
                                   highestAward2 == 3~"AO",
                                   highestAward2 == 4~"AC",
-                                  highestAward2 == 5 ~"ADK")) %>% 
+                                  highestAward2 == 5 ~"ADK")) 
+
+
+recipient_4 <- recipient_3 %>% 
   filter(highestAward1 == max(highestAward1)) %>% 
   rename(numberOfHonours = n) %>% 
   mutate(first_honours_year = year(first_honours_date) )%>% 
@@ -1124,13 +1131,13 @@ recipient <- all_data %>%
   clean_names() %>% 
   select(1:5, first_honours_date, first_honours_year, pre_post_wikipedia, 6:23)
 
-write_csv(recipient, "recipient.csv")
+write_csv(recipient_4, "recipient.csv")
 
 ## calculates date diff of award and page creation
 
 ## sets old dates of honors to the first date wikipedia was operating 
 # View(wikipedia)
-wikipedia <- recipient %>% 
+wikipedia <- recipient_4 %>% 
   filter(wikipedia_page=="Yes") %>% 
   mutate(new_honours_date = replace(first_honours_date, first_honours_date<"2001-01-15", "2001-01-15")) %>% 
   mutate(new_honours_year = year(new_honours_date),
@@ -1144,7 +1151,6 @@ wikipedia <- recipient %>%
          week_diff = floor(week_diff)) %>% 
   distinct()
 
-wp_check <- 
 
 write_csv(wikipedia, "wikipedia.csv")
 
@@ -1163,5 +1169,6 @@ week_zero <- wikipedia %>%
 
 
 ##women only - page created before and after honors
+
 ##women only - with and without Wikipedia page
 
