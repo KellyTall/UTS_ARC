@@ -208,7 +208,7 @@ wikipedia_page_query <- wikipedia_page_list %>%
 
 # extracts wikipedia page information for each record - takes some time!
 ## splits file into smaller number of rows to prevent timings out
-# View(wp_1)
+View(wp_3)
 wp_1 <- wikipedia_page_query %>% 
   slice(1:1000)
 
@@ -315,7 +315,7 @@ check_no_id <- wikipedia_page_extraction_format %>%
 # wikipedia_page_extraction_format <- read_csv("wikipedia_page_extraction_format.csv")
 
 
-View(wp_page_create_search19)
+View(wp_page_create_search1)
 
 wp_page_create_search1 <- wikipedia_page_extraction_format %>% 
   select(wp_pageid) %>%
@@ -417,7 +417,7 @@ wp_page_create_search12 <- wikipedia_page_extraction_format %>%
   mutate(search_url=paste(base, wp_pageid, sep = "")) %>% 
   select(search_url) %>% 
   slice(2751:3000)
-View(wp_page_create_search13)
+View(wp_page_create_search18)
 
 wp_page_create_search13 <- wikipedia_page_extraction_format %>% 
   select(wp_pageid) %>%
@@ -480,7 +480,7 @@ wp_page_create_search19 <- wikipedia_page_extraction_format %>%
   
 # View(wp_page_create_search13)
 
-##specia query for one record where page creation date was not being picked up
+##special query for one record where page creation date was not being picked up
 # wp_page_create_missing <- wikipedia_page_extraction_format %>% 
 #   filter(wp_pageid==2994195) %>% 
 #   select(wp_pageid) %>% 
@@ -490,6 +490,7 @@ wp_page_create_search19 <- wikipedia_page_extraction_format %>%
 
 # query of page creation date for each data set
 
+View(wp_page_create_search1)
 
 wp_page_create_query1 <- lapply(wp_page_create_search1$search_url, function(i){
   
@@ -851,24 +852,24 @@ wp_page_create_query19<- lapply(wp_page_create_search19$search_url, function(i){
 })
 
 
-wp_page_create_jack_locket <- lapply(wp_page_create_missing$search_url, function(i){
-  
-  date <- read_html(i)
-  
-  EntryInfo <- html_nodes(date, ".s2") %>% 
-    html_nodes(xpath="./text()[normalize-space()]") %>% 
-    html_text(trim=TRUE) %>% 
-    as_tibble() %>% 
-    slice_tail(n=9) %>% 
-    rownames_to_column() %>%
-    pivot_longer(-rowname) %>%
-    pivot_wider(names_from = rowname, values_from=value) %>% 
-    select(-name, -`1`, -`4`, -`3`, -`5`, -`7`, -`8`) %>% 
-    rename(pageID=`2`,
-           name = `6`,
-           pageCreation = `9`)
-  
-})
+# wp_page_create_jack_locket <- lapply(wp_page_create_missing$search_url, function(i){
+#   
+#   date <- read_html(i)
+#   
+#   EntryInfo <- html_nodes(date, ".s2") %>% 
+#     html_nodes(xpath="./text()[normalize-space()]") %>% 
+#     html_text(trim=TRUE) %>% 
+#     as_tibble() %>% 
+#     slice_tail(n=9) %>% 
+#     rownames_to_column() %>%
+#     pivot_longer(-rowname) %>%
+#     pivot_wider(names_from = rowname, values_from=value) %>% 
+#     select(-name, -`1`, -`4`, -`3`, -`5`, -`7`, -`8`) %>% 
+#     rename(pageID=`2`,
+#            name = `6`,
+#            pageCreation = `9`)
+#   
+# })
 
  
 ##bind rows together
@@ -878,8 +879,7 @@ wp_page_create_bind <- bind_rows(wp_page_create_query1, wp_page_create_query2, w
                                  wp_page_create_query5, wp_page_create_query6, wp_page_create_query7, wp_page_create_query8,
                                  wp_page_create_query9, wp_page_create_query10, wp_page_create_query11, wp_page_create_query12,
                                 wp_page_create_query13, wp_page_create_query14, wp_page_create_query15, wp_page_create_query16,wp_page_create_query17, 
-                                 wp_page_create_query18, wp_page_create_query19,
-                                wp_page_create_jack_locket)
+                                 wp_page_create_query18, wp_page_create_query19)
 
 ## format file - fixing time zone from UTC to Sydney to ensure correct time calculation
 
@@ -950,7 +950,7 @@ wikipedia_complete <- right_join(wikipedia_page_list, wikipedia_page_date, by="w
 # View(all_data_merge_honsid)
 
 all_data_merge_honsid <- left_join(honour_1, wikipedia_complete, by="award_id", multiple="all") %>% 
-  filter(award_id!=977965) %>%
+  filter(award_id!=977965)
   ##removes one case that was recorded incorrectly on wikidata at time of extraction (Yvette_Higgins as an order holder when she has a sports medal)
 
 ##data checks
@@ -1052,10 +1052,10 @@ data_prep_3 <- data_prep_2 %>%
                                     TRUE ~ "No")) 
 
 ##sorting dates etc
-# View(data_prep_4)
+# View(data_prep_3)
 
 data_prep_4 <- data_prep_3 %>% 
-  # rename(wp_creation_date =aus_page_creation) %>% 
+  rename(wp_creation_date =aus_page_creation) %>%
   filter(awarded_on !="06/13/2022 00:00:00 +00:00") %>% 
   mutate(awarded_on_full = dmy_hms(awarded_on),
          honours_date = as_date(awarded_on_full)) %>% 
