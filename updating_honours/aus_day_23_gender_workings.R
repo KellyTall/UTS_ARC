@@ -57,7 +57,7 @@ gender_test_missing <- gender_test_import_missing %>%
   select(first) %>% 
   distinct()
 
-
+View(gender_pred)
 gender_pred <- gender(gender_test$first, method = "ssa") %>% 
   rename(first=name)
   
@@ -143,8 +143,32 @@ gender_pred_merge_missing <- right_join(gender_pred_missing, gender_test_import_
 
 
 
-honours_additions_gender <- rbind(gender_pred_merge_22,gender_pred_merge, gender_pred_merge_missing) 
-View(honours_additions_gender)
+honours_additions_gender <- rbind(gender_pred_merge_22,gender_pred_merge, gender_pred_merge_missing) %>% 
+  mutate(gender = case_when(str_detect(gazette_name, "Mrs") ~ "F",
+                            str_detect(gazette_name, "Ms") ~ "F",
+                            str_detect(gazette_name, "Miss") ~ "F",
+                            str_detect(gazette_name, "Mr") ~ "M",
+                            gazette_name == "Commodore Braddon John WHEELER RAN"~ "M",
+                            gazette_name == "Professor Roslynne Elizabeth HANSEN"~ "F",
+                            gazette_name == "The Honourable Eadley Graeme STONEY"~ "M",
+                            gazette_name == "Captain  P"~ "U",
+                            gazette_name == "The Honourable Emilios John KYROU"~ "M",
+                            gazette_name == "Dr Furio John VIRANT"~ "M",
+                            gazette_name == "Dr Shailja CHATURVEDI"~ "F",
+                            gazette_name == "Professor Tissa WIJERATNE"~ "M",
+                            gazette_name == "Emerita Professor Ngaire May NAFFINE"~ "F",
+                            gazette_name == "Dr Criena FITZGERALD"~ "F",
+                            gazette_name == "Professor Helge Hans RASMUSSEN"~ "M",
+                            gazette_name == "Professor Elsdon STOREY"~ "M",
+                            gazette_name == "Professor S Alexander HASLAM"~ "M",
+                            gazette_name == "Professor Xinhua WU"~ "F",
+                            gazette_name == "Professor Hua Kun LIU"~ "F",
+                            gazette_name == "Professor Farees (Fary) KHAN"~ "F",
+                            gazette_name == "Professor Prithvipall Singh BHATHAL"~ "M",
+                            .default = as.character(gender))) 
+
+
+View(honours_additions_gender_na)
 
 write_csv(honours_additions_gender, "honours_additions_gender.csv") 
 

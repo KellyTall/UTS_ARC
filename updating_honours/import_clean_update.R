@@ -20,7 +20,16 @@ honours_additions <- read_csv("honours_additions_gender.csv") %>%
   clean_names() %>% 
   select(-media_note)
 
-honour_1 <- rbind(honour_prev, honours_additions)
+##merging files + filtering out U /Anon military awards 
+honour_1 <- rbind(honour_prev, honours_additions) %>% 
+  filter(gender != "U") 
+
+
+gender_check <- honour_1 %>% 
+  filter(gender=="TF" | gender == "U" | is.na(gender) )
+
+View(gender_check)
+
 
 write_csv(honour_1, "complete_honours_20230318.csv")
 
@@ -87,12 +96,16 @@ wikidata_data_valid <- wikidata_data_query %>%
                                    person_label == "Simon Poidevin" ~ "missing",
                                    person_label == "Kelvin Khong" ~ "missing",
                                    person_label == "Clyde Wood" ~ "missing",
+                                   person_label == "Clyde Wood" ~ "missing",
                                    TRUE ~ "valid"))
                                    
   
 wikidata_data <- wikidata_data_valid %>% 
   filter(return_remove_anon=="valid") %>% 
   select(-return_remove_anon)
+
+b <- wikidata_data %>% 
+  distinct(person)
 
 # no_id <- wikidata_data %>% 
 #   filter(str_detect(refurl, "https://honours.pmc.gov.au/honours/awards/", negate=TRUE) & return_remove_anon=="Valid")
@@ -1052,28 +1065,44 @@ data_prep_3 <- data_prep_2 %>%
                                     TRUE ~ "No")) 
 
 ##sorting dates etc
-# View(data_prep_3)
+# View(data_prep_4)
 
 data_prep_4 <- data_prep_3 %>% 
   rename(wp_creation_date =aus_page_creation) %>%
   filter(awarded_on !="06/13/2022 00:00:00 +00:00") %>% 
+  filter(awarded_on !="01/26/2022 00:00:00 +00:00") %>% 
+  filter(awarded_on !="01/26/2023 00:00:00 +00:00") %>%
+  filter(awarded_on !="01/27/2022 00:00:00 +00:00") %>%
+  filter(awarded_on !="04/30/2021 00:00:00 +00:00") %>%
+  filter(awarded_on !="04/30/2022 00:00:00 +00:00") %>%
   mutate(awarded_on_full = dmy_hms(awarded_on),
          honours_date = as_date(awarded_on_full)) %>% 
   select(-date_awarded, -awarded_on) %>% 
   mutate(honours_year = year(honours_date),
          wikipedia_creation_year = year(wp_creation_date))
 
-##fixing queens bday 2022 date order
+date_test <- data_prep_4 %>% 
+  filter(is.na(honours_date))
+View(date_test)
+
+##fixing queens bday / Aus day 2022 date order
+
 
 data_prep_4_qb <- data_prep_3 %>% 
   rename(wp_creation_date =aus_page_creation) %>% 
-  filter(awarded_on =="06/13/2022 00:00:00 +00:00") %>% 
+  filter(awarded_on =="06/13/2022 00:00:00 +00:00" | awarded_on =="01/26/2022 00:00:00 +00:00" | 
+           awarded_on =="01/26/2023 00:00:00 +00:00" | awarded_on =="01/27/2022 00:00:00 +00:00" |
+           awarded_on =="04/30/2021 00:00:00 +00:00" | awarded_on =="04/30/2022 00:00:00 +00:00") %>% 
   mutate(awarded_on_full = mdy_hms(awarded_on),
          honours_date = as_date(awarded_on_full)) %>% 
   select(-date_awarded, -awarded_on) %>% 
   mutate(honours_year = year(honours_date),
          wikipedia_creation_year = year(wp_creation_date))
 
+# date_test <- data_prep_4_qb %>% 
+#   filter(is.na(honours_date))
+# View(date_test)
+# 
 
 # View(data_prep_5)
 
@@ -1117,6 +1146,7 @@ recipient_3 <- recipient_2 %>%
                                   highestAward2 == 4~"AC",
                                   highestAward2 == 5 ~"ADK")) 
 
+# View(recipient_3)
 
 recipient_4 <- recipient_3 %>% 
   filter(highestAward1 == max(highestAward1)) %>% 
@@ -1148,7 +1178,7 @@ wikipedia <- recipient_4 %>%
   mutate(wikipedia_week = strftime(wp_creation_date, format = "%Y-W%V"),
          new_honours_week = strftime(new_honours_date, format = "%Y-W%V"),
          week_diff = interval(new_honours_date, wp_creation_date) / dweeks(1),
-         week_diff = floor(week_diff)) %>% 
+         week_diff = floor(week_diff)) %>%
   distinct()
 
 

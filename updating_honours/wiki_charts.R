@@ -21,9 +21,10 @@ wp_format <-  theme(
 
 ##men and women over time (by year)
 
-View(all_data)
+View(date_check)
 
 date_check <- all_data %>% 
+  
   select(honours_date) %>% 
   summarise(min=min(honours_date), max=max(honours_date))
 
@@ -37,7 +38,7 @@ year_check <- all_data %>%
 View(wikipedia)
 
 
-all_data <- read_csv("all_data.csv")
+# all_data <- read_csv("all_data.csv")
 
 gender_split <- all_data %>% 
   filter(gender!="U") %>% 
@@ -106,14 +107,14 @@ prop_by_type_chart <- ggplot(prop_by_type, aes(award, prop, fill=wikipedia_page)
                      mutate(lab = paste0(award, " (", n, ")")) %>%
                      pull(lab))+
   labs(title = "Proportion of Order of Australia Recipients with Wikipedia page",
-       caption = "n=43,705 Order of Australia Recipients (Feb 1975 - June 2022) Showing highest Order received by an individual",
+       caption = "n=45,166 Order of Australia Recipients (Feb 1975 - January 2023) Showing highest Order received by an individual",
        x=NULL,
        y=NULL)+
   scale_fill_manual(values =award_colour)+
   theme_minimal()+
     guides(fill = guide_legend(title = "Wikipedia Page"))
   
-  
+ggsave("prop_by_type_chart.png", width= 20, height = 10, units=c("cm") )
                      
 
 
@@ -124,20 +125,20 @@ award_by_year <- ggplot(gender_split, aes(honours_year, gender_prop_year, fill=g
   # scale_fill_manual(values = gender_colour)+
   wp_format+
   theme_minimal()+
-  labs(title = "Order of Australia Honours over time: Male and Female Recipients",
-       x= "Year Honours awarded",
-       y="")+
+  labs(title = "Order of Australia Honours over time: Proportion of Male and Female Recipients",
+       caption = "n=45,606 Order of Australia Recipients (Feb 1975 - January 2023) Showing highest Order received by an individual",
+       x= NULL,
+       y=NULL)+
   scale_y_continuous(labels = percent)+
   geom_hline(yintercept = .75, alpha=.25) +
   geom_hline(yintercept = .5, alpha=.25) +
   scale_fill_manual(name = "Gender", labels = c("Female", "Male"), values = gender_colour)
 
-##add in 50% and 75% reference line
-##remove background
-##make y scale percentage
-##add heading and subheading and bottom annotation of data and number etc
-  
+
 award_by_year
+
+ggsave("award_by_year.png", width= 20, height = 10, units=c("cm") )
+
 
 
 
@@ -158,16 +159,17 @@ WP_by_year <- ggplot(gender_split_wiki, aes(wikipedia_creation_year, gender_prop
   geom_col()+
   wp_format+
   theme_minimal()+
-  labs(title = "Proportion of Wikipedia Pages created for Order of Australia Honours 
-       recipients over time: Male and Female",
-       x= "Year Honours awarded",
-       y="")+
+  labs(title = "Wikipedia Pages created for Order of Australia Honours recipients over time:\nProportion of Male and Female",
+       caption = "n=4,882 Wikipedia Biographies created for Order of Australia recipients",
+       x= NULL,
+       y=NULL)+
   scale_y_continuous(labels = percent)+
   geom_hline(yintercept = .75, alpha=.25) +
   geom_hline(yintercept = .5, alpha=.25) +
   scale_fill_manual(name = "Gender", labels = c("Female", "Male"), values = gender_colour)
 
 WP_by_year
+ggsave("wp_year.png", width= 20, height = 10, units=c("cm") )
 
 ##add in 50% and 75% reference line
 ##remove background
@@ -178,15 +180,16 @@ WP_by_year_num <- ggplot(gender_split_wiki, aes(wikipedia_creation_year, gender_
   geom_col()+
   wp_format+
   theme_minimal()+
-  labs(title = "Number of Wikipedia Pages created for Order of Australia Honours 
-       recipients over time: Male and Female",
-       x= "Year Honours awarded",
-       y="")+
+  labs(title = "Number of Wikipedia Pages created for Order of Australia Honours recipients over time: Male and Female",
+       caption = "n=4,882 Wikipedia Biographies created for Order of Australia recipients",
+       x=NULL,
+       y=NULL)+
   # geom_hline(yintercept = .75, alpha=.25) +
   # geom_hline(yintercept = .5, alpha=.25) +
   scale_fill_manual(name = "Gender", labels = c("Female", "Male"), values = gender_colour)
 
 WP_by_year_num
+ggsave("wp_by_year_num.png", width= 20, height = 10, units=c("cm") )
 
 ##remove background / fix up
 ##add heading and subheading and bottom annotation of data and number etc
@@ -204,7 +207,8 @@ prop_page <- recipient %>%
   tally() %>% 
   mutate(total = sum(n)) %>% 
   mutate(award_prop = n/total) %>% 
-  filter(wikipedia_page=="Yes")
+  filter(wikipedia_page=="Yes") %>% 
+  
 
 
 prop_page_chart <- ggplot(prop_page, aes(award_comb, award_prop))+
@@ -296,6 +300,38 @@ week_award_chart <- ggplot(week_award, aes(week_diff, award,fill=week_num)) +
   theme_minimal()+
   guides(fill = guide_legend(title = "No. Wikipedia\npages created\nin week"))
   
+
+week_award_gender <- wikipedia %>% 
+  select(week_diff, award_comb, gender) %>% 
+  group_by(week_diff, award_comb, gender) %>% 
+  tally(name="week_num") %>% 
+  filter(week_diff >-52 & week_diff <53) %>% 
+  filter(award_comb!="ADK") %>% 
+  mutate(award = as_factor(case_when(award_comb == "AC" ~ "Companion",
+                                     award_comb == "AO" ~ "Officer",
+                                     award_comb == "AM" ~ "Member",
+                                     award_comb == "OAM" ~ "Medal"))) %>% 
+  mutate(award = fct_relevel(award, c("Companion", "Officer", "Member", "Medal"))) %>% 
+  ungroup() 
+
+week_award_chart_gender <- ggplot(week_award_gender, aes(week_diff, award,fill=week_num)) +
+  geom_tile()+
+  facet_wrap(~gender)+
+  theme_minimal()+
+  scale_fill_continuous(high="darkolivegreen", low="cornsilk",
+                        breaks=c(2,4,6,8,10,12,14,16,18,20))+
+  scale_y_discrete(labels = week_award %>% 
+                     group_by(award) %>% 
+                     summarize(n = sum(week_num)) %>%
+                     mutate(lab = paste0(award,"\n(",n, ")")) %>%
+                     pull(lab))+
+  labs(title = "Wikipedia Pages created for Order recipients 52 weeks pre- and post-announcement",
+       subtitle = "49 pages were created on week of Order announcement compared to an average of 1.89 in other weeks ",
+       caption = "\n\nn=388 Wikipedia pages were created for Order of Australia recipients in the 52 weeks prior and post announcement",
+       x="Number of weeks pre- and post-Order announcement",
+       y=NULL)+
+  theme_minimal()+
+  guides(fill = guide_legend(title = "No. Wikipedia\npages created\nin week"))
 
 
 
