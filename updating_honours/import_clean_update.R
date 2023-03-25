@@ -1109,9 +1109,9 @@ data_prep_4_qb <- data_prep_3 %>%
 data_prep_5 <- rbind(data_prep_4, data_prep_4_qb)
 
 
-# View(all_data)
+  # View(all_data)
 all_data  <- data_prep_5 %>% 
-  select(name, gender, wikipedia_page, award_comb, state, wikipedia_url, wikipedia_page_id, award_id, wikipedia_page_id, wp_creation_date, 
+  select(name, gazette_name, gender, wikipedia_page, award_comb, state, wikipedia_url, wikipedia_page_id, award_id, wikipedia_page_id, wp_creation_date, 
          honours_date, wikipedia_creation_year, honours_year, award_name, announcement_event, division, citation, person_description)
 
 write_csv(all_data, "all_data.csv")
@@ -1179,7 +1179,11 @@ wikipedia <- recipient_4 %>%
          new_honours_week = strftime(new_honours_date, format = "%Y-W%V"),
          week_diff = interval(new_honours_date, wp_creation_date) / dweeks(1),
          week_diff = floor(week_diff)) %>%
-  distinct()
+  distinct() %>% 
+  mutate(gender = case_when(gender == "TF" ~"Female",
+                            gender == "F" ~"Female",
+                            gender == "M" ~"Male",
+                            TRUE ~ as.character(gender)))
 
 
 write_csv(wikipedia, "wikipedia.csv")
