@@ -63,8 +63,9 @@ scatter_pre_post <- ggplot(text_data_prepost, aes(before_honours, after_honours)
   geom_abline(color = "cornflowerblue", alpha=.9)+
   wp_format+
   theme_minimal()+
-  labs(title = "Citations describing achievements of female recipients of Order of Australia who have Wikipedia Page", 
-       subtitle = "Showing difference in frequency of words used in Order citation between pages created before or after Order received.",
+  labs(
+    # title = "Citations describing achievements of female recipients of Order of Australia who have Wikipedia Page", 
+    #    subtitle = "Showing difference in frequency of words used in Order citation between pages created before or after Order received.",
        x=NULL,
        y=NULL,
        caption = "Citations of n=1,002 women who received Order of Australia after 15 January 2001. Note: Log10 scale")+
@@ -116,8 +117,9 @@ scatter_wp <- ggplot(text_data_wiki, aes(`Has Wikipedia Biography`,`No Wikipedia
   
   wp_format+
   theme_minimal()+
-  labs(title = "Citations describing achievements of female recipients of Order of Australia", 
-       subtitle = "Showing difference in frequency of words for those with and without a Wikipedia Biography.",
+  labs(
+    # title = "Citations describing achievements of female recipients of Order of Australia", 
+    #    subtitle = "Showing difference in frequency of words for those with and without a Wikipedia Biography.",
        x=NULL,
        y=NULL,
        caption = "Citations of n=13,002 Orders for women who received Order of Australia. Note: Log10 scale")+
