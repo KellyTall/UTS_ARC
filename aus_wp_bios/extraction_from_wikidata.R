@@ -7,8 +7,8 @@ library(tidyverse)
 library(janitor)
 library(WikidataQueryServiceR)
 
-# aus_citizens_wd <- query_wikidata(
-#   "SELECT ?person ?personLabel ?personDescription ?sitelink 
+# aus_citizens_wd2 <- query_wikidata(
+#   "SELECT ?person ?personLabel ?personDescription ?sitelink
 # WHERE
 # {
 #   ?person wdt:P31 wd:Q5 .
@@ -16,8 +16,8 @@ library(WikidataQueryServiceR)
 #   OPTIONAL { ?sitelink schema:about ?person ;
 #               schema:inLanguage 'en' ;
 #               schema:isPartOf [ wikibase:wikiGroup 'wikipedia' ] }.
-#   SERVICE wikibase:label { bd:serviceParam wikibase:language 'en'}. 
-# }") 
+#   SERVICE wikibase:label { bd:serviceParam wikibase:language 'en'}.
+# }")
 # 
 # View(aus_citizens_wd)
 
@@ -42,7 +42,8 @@ View(aus_citizens_wd)
 
 wp_bio_aus_citizens <- aus_citizens_wd %>% 
   clean_names() %>% 
-  filter(!is.na(sitelink)) 
+  filter(!is.na(sitelink)) %>% 
+  distinct()
   
 
 View(wp_bio_aus_citizens)

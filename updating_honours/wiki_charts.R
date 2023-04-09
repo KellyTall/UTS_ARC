@@ -53,7 +53,8 @@ gender_split <- all_data %>%
   add_tally(name="total_year") %>% 
   group_by(honours_year, gender, total_year) %>% 
   tally(name = "gender_total") %>% 
-  mutate(gender_prop_year = gender_total/total_year)
+  mutate(gender_prop_year = gender_total/total_year) %>% 
+  print(n=98)
 
 View(gender_split)
 
@@ -190,7 +191,7 @@ prop_by_type_chart_gender <- ggplot(prop_by_type_gender, aes(award_label, prop_g
         legend.margin = margin(2, 6, 2,0),
         # legend.title=element_blank(),
         legend.spacing.x = unit(.2, 'cm'),
-        strip.text.x = element_text(size = 12, hjust = .5))
+        strip.text.x = element_text(size = 12, hjust = .5)) 
 
 prop_by_type_chart_gender
 
@@ -242,7 +243,8 @@ gender_split_wiki <- wikipedia %>%
   add_tally(name="total_year") %>% 
   group_by(wikipedia_creation_year, gender, total_year) %>% 
   tally(name = "gender_total") %>% 
-  mutate(gender_prop_year = gender_total/total_year)
+  mutate(gender_prop_year = gender_total/total_year) %>% 
+  print(n=46)
   
 WP_by_year <- ggplot(gender_split_wiki, aes(wikipedia_creation_year, gender_prop_year, fill=gender))+
   geom_col()+
