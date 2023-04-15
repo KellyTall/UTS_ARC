@@ -104,8 +104,8 @@ wikidata_data <- wikidata_data_valid %>%
   filter(return_remove_anon=="valid") %>% 
   select(-return_remove_anon)
 
-b <- wikidata_data %>% 
-  distinct(person)
+# b <- wikidata_data %>% 
+#   distinct(person)
 
 # no_id <- wikidata_data %>% 
 #   filter(str_detect(refurl, "https://honours.pmc.gov.au/honours/awards/", negate=TRUE) & return_remove_anon=="Valid")
@@ -188,9 +188,6 @@ wikipedia_page_list <- wikidata_wp %>%
 wp_check_unique <- wikipedia_page_list %>% 
   select(wikipedia_url) %>% 
   distinct()
-
-
-
 
 
 # View(wikipedia_page_query)
@@ -867,27 +864,10 @@ wp_page_create_query19<- lapply(wp_page_create_search19$search_url, function(i){
 })
 
 
-# wp_page_create_jack_locket <- lapply(wp_page_create_missing$search_url, function(i){
-#   
-#   date <- read_html(i)
-#   
-#   EntryInfo <- html_nodes(date, ".s2") %>% 
-#     html_nodes(xpath="./text()[normalize-space()]") %>% 
-#     html_text(trim=TRUE) %>% 
-#     as_tibble() %>% 
-#     slice_tail(n=9) %>% 
-#     rownames_to_column() %>%
-#     pivot_longer(-rowname) %>%
-#     pivot_wider(names_from = rowname, values_from=value) %>% 
-#     select(-name, -`1`, -`4`, -`3`, -`5`, -`7`, -`8`) %>% 
-#     rename(pageID=`2`,
-#            name = `6`,
-#            pageCreation = `9`)
-#   
-# })
+
 
  
-##bind rows together
+
 
 # View(wp_page_create_query13)
 wp_page_create_bind <- bind_rows(wp_page_create_query1, wp_page_create_query2, wp_page_create_query3,  wp_page_create_query4,
@@ -925,6 +905,7 @@ wp_page_create_format <- wp_page_create_bind %>%
 
 
 write_csv(wp_page_create_format, "wp_page_create_format.csv")
+
 # wp_page_create_format <- read_csv("wp_page_create_format.csv")
 View(wp_page_create_format)
 
@@ -948,7 +929,7 @@ View(wikipedia_page_query)
 
 wikipedia_page_date <- right_join(wp_page_create_format, wikipedia_page_query, by="name", multiple="all") 
   
-
+write_csv(wikipedia_page_date, "wikipedia_page_date.csv")
 
 
 # id_check <- wikipedia_page_date %>%
@@ -960,6 +941,9 @@ View(wikipedia_complete)
 wikipedia_complete <- right_join(wikipedia_page_list, wikipedia_page_date, by="wikipedia_url", multiple="all") %>% 
   rename(award_id = honsid) %>% 
   filter(award_id!=977965) ##removes one case that was recorded incorrectly on wikidata at time of extraction (Yvette_Higgins as an order holder when she has a sports medal)
+
+
+write_csv(wikipedia_complete, "wikipedia_complete.csv")
 
 # View(honour_1)
 # View(all_data_merge_honsid)
@@ -1194,7 +1178,7 @@ week_zero <- wikipedia %>%
   filter(week_diff == 0 | week_diff ==1 | week_diff ==-1 ) %>% 
   select(name, wikipedia_page_id, wikipedia_url, award_name)
 
-
+write_csv(week_zero, "week_zero.csv")
 
 
 

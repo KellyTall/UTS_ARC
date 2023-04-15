@@ -52,6 +52,7 @@ text_data_prepost <-  text_data_prep_prepost %>%
 #   pivot_wider(names_from = before_after, values_from = tf_idf)
 
 View(text_data_prepost)
+write.csv(text_data_prepost, "text_data_prepost.csv")
 
 scatter_pre_post <- ggplot(text_data_prepost, aes(before_honours, after_honours)) +
   geom_abline(color = "cornflowerblue", alpha=.9)+
@@ -106,6 +107,8 @@ View(text_data_wiki)
 # citation_tf_idf <- text_data_prepost %>%
 #   bind_tf_idf(word, before_after, n) %>% 
 #   pivot_wider(names_from = before_after, values_from = tf_idf)
+
+write.csv(text_data_wiki, "text_data_wiki.csv")
 
 scatter_wp <- ggplot(text_data_wiki, aes(`Has Wikipedia Biography`,`No Wikipedia Biography`)) +
   geom_abline(color = "cornflowerblue", alpha=.9)+
