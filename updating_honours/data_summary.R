@@ -16,5 +16,8 @@ library(stringi)
 
 #gender split - plus TF anonymous
 
+
+View(all_data)
 all_data <- read_csv( "all_data.csv") %>% 
-  clean_names()
+  clean_names() 
+  

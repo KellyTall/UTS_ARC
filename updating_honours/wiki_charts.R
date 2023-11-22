@@ -364,9 +364,9 @@ week <- wikipedia %>%
   group_by(week_diff) %>% 
   tally(name="week_num")
 
-creation_clusters <- wikipedia %>% 
-  filter(week_diff==) %>% 
-  add_tally()
+# creation_clusters <- wikipedia %>% 
+#   filter(week_diff==) %>% 
+#   add_tally()
 
 View(creation_clusters)
 
